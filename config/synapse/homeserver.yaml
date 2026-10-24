@@ -1,0 +1,65 @@
+# Matrix Synapse homeserver configuration
+# Replace ${BASE_DOMAIN} with your actual domain before deploying
+
+server_name: "matrix.REPLACE_BASE_DOMAIN"
+pid_file: /data/homeserver.pid
+
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    resources:
+      - names: [client, federation]
+        compress: false
+
+database:
+  name: psycopg2
+  args:
+    user: synapse
+    password: REPLACE_SYNAPSE_DB_PASSWORD
+    database: synapse
+    host: postgres
+    cp_min: 5
+    cp_max: 10
+
+redis:
+  enabled: true
+  host: redis
+  port: 6379
+  password: REPLACE_REDIS_PASSWORD
+
+log_config: "/data/matrix.REPLACE_BASE_DOMAIN.log.config"
+media_store_path: /data/media_store
+signing_key_path: "/data/matrix.REPLACE_BASE_DOMAIN.signing.key"
+
+# Registration — disabled by default (admin creates accounts)
+enable_registration: false
+registration_shared_secret: "REPLACE_MATRIX_REGISTRATION_SECRET"
+
+# Federation — enable to allow cross-server messaging
+federation_domain_whitelist: []
+
+# Suppress reporting
+report_stats: false
+
+# Rate limits
+rc_message:
+  per_second: 0.2
+  burst_count: 10
+
+rc_registration:
+  per_second: 0.17
+  burst_count: 3
+
+# Retention policy (DPDP compliance: 1 year)
+retention:
+  enabled: true
+  default_policy:
+    min_lifetime: 1d
+    max_lifetime: 365d
+  purge_jobs:
+    - interval: 1d
+
+trusted_key_servers:
+  - server_name: "matrix.org"

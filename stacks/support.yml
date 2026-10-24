@@ -1,0 +1,133 @@
+# =============================================================
+# Support: Chatwoot + Flowise + Ollama + Open WebUI
+# =============================================================
+
+services:
+
+  # ── Chatwoot (customer support + WhatsApp omnichannel, MIT) ──
+  chatwoot:
+    image: chatwoot/chatwoot:latest
+    container_name: chatwoot
+    restart: unless-stopped
+    command: bundle exec rails s -p 3000 -b 0.0.0.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      RAILS_ENV: production
+      INSTALLATION_ENV: docker
+      SECRET_KEY_BASE: ${CHATWOOT_SECRET_KEY}
+      FRONTEND_URL: https://support.${BASE_DOMAIN}
+      DEFAULT_LOCALE: en
+      FORCE_SSL: "false"   # TLS at Traefik
+      ENABLE_ACCOUNT_SIGNUP: "false"
+      DATABASE_URL: postgresql://chatwoot:${CHATWOOT_DB_PASSWORD}@postgres:5432/chatwoot
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      STORAGE_DRIVER: local
+      ACTIVE_STORAGE_SERVICE: local
+    volumes:
+      - chatwoot_storage:/app/storage
+    networks:
+      - internal
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.chatwoot.rule=Host(`support.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.chatwoot.entrypoints=websecure"
+      - "traefik.http.routers.chatwoot.tls.certresolver=letsencrypt"
+      - "traefik.http.services.chatwoot.loadbalancer.server.port=3000"
+
+  # ── Chatwoot Sidekiq worker ───────────────────────────────────
+  chatwoot-worker:
+    image: chatwoot/chatwoot:latest
+    container_name: chatwoot-worker
+    restart: unless-stopped
+    command: bundle exec sidekiq -C config/sidekiq.yml
+    depends_on:
+      - chatwoot
+    environment:
+      SECRET_KEY_BASE: ${CHATWOOT_SECRET_KEY}
+      DATABASE_URL: postgresql://chatwoot:${CHATWOOT_DB_PASSWORD}@postgres:5432/chatwoot
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+    volumes:
+      - chatwoot_storage:/app/storage
+    networks:
+      - internal
+
+  # ── Ollama (local LLM runtime) ────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - internal
+    deploy:
+      resources:
+        reservations:
+          devices: []    # Remove this block to enable GPU passthrough
+
+  # ── Flowise (LLM pipeline builder, Apache 2.0) ───────────────
+  flowise:
+    image: flowiseai/flowise:latest
+    container_name: flowise
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    environment:
+      PORT: "3001"
+      FLOWISE_USERNAME: ${FLOWISE_USERNAME}
+      FLOWISE_PASSWORD: ${FLOWISE_PASSWORD}
+      DATABASE_PATH: /root/.flowise
+      APIKEY_PATH: /root/.flowise
+      SECRETKEY_PATH: /root/.flowise
+      LOG_PATH: /root/.flowise/logs
+      BLOB_STORAGE_PATH: /root/.flowise/storage
+      OLLAMA_BASE_URL: http://ollama:11434
+    volumes:
+      - flowise_data:/root/.flowise
+    networks:
+      - internal
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.flowise.rule=Host(`ai.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.flowise.entrypoints=websecure"
+      - "traefik.http.routers.flowise.tls.certresolver=letsencrypt"
+      - "traefik.http.services.flowise.loadbalancer.server.port=3001"
+      - "traefik.http.routers.flowise.middlewares=authentik@file"
+
+  # ── Open WebUI (chat UI for Ollama) ──────────────────────────
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      WEBUI_SECRET_KEY: ${OPEN_WEBUI_SECRET_KEY}
+      WEBUI_AUTH: "True"
+      ENABLE_SIGNUP: "False"
+    volumes:
+      - open_webui_data:/app/backend/data
+    networks:
+      - internal
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.openwebui.rule=Host(`llm.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.openwebui.entrypoints=websecure"
+      - "traefik.http.routers.openwebui.tls.certresolver=letsencrypt"
+      - "traefik.http.services.openwebui.loadbalancer.server.port=8080"
+      - "traefik.http.routers.openwebui.middlewares=authentik@file"
+
+volumes:
+  chatwoot_storage:
+  ollama_data:
+  flowise_data:
+  open_webui_data:

@@ -1,0 +1,108 @@
+# =============================================================
+# Chat: Zulip (team chat) + Matrix Synapse + Element Web (E2EE)
+# =============================================================
+
+services:
+
+  # ── Zulip (team chat, Apache 2.0) ────────────────────────────
+  zulip:
+    image: zulip/docker-zulip:9.1-0
+    container_name: zulip
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_HOST_PORT: "5432"
+      DB_USER: zulip
+      DB_PASSWORD: ${ZULIP_DB_PASSWORD}
+      SETTING_EXTERNAL_HOST: chat.${BASE_DOMAIN}
+      SETTING_ZULIP_ADMINISTRATOR: ${ZULIP_ADMIN_EMAIL}
+      SETTING_EMAIL_HOST: ""
+      SETTING_EMAIL_HOST_USER: ""
+      SETTING_EMAIL_PORT: "587"
+      SETTING_EMAIL_USE_TLS: "True"
+      SETTING_REDIS_HOST: redis
+      SETTING_REDIS_PORT: "6379"
+      SETTING_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      SECRETS_email_password: ""
+      SECRETS_secret_key: ${ZULIP_SECRET_KEY}
+      SECRETS_shared_secret: ${ZULIP_SHARED_SECRET}
+      SECRETS_avatar_salt: ${ZULIP_AVATAR_SALT}
+      ZULIP_AUTH_BACKENDS: "EmailAuthBackend"
+      DISABLE_HTTPS: "True"   # TLS terminated at Traefik
+      SSL_CERTIFICATE_GENERATION: "self-signed"
+    volumes:
+      - zulip_data:/data
+    networks:
+      - internal
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.zulip.rule=Host(`chat.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.zulip.entrypoints=websecure"
+      - "traefik.http.routers.zulip.tls.certresolver=letsencrypt"
+      - "traefik.http.services.zulip.loadbalancer.server.port=80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/v1/server_settings"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  # ── Matrix Synapse (E2EE messaging, AGPL-3.0) ─────────────────
+  synapse:
+    image: matrixdotorg/synapse:latest
+    container_name: synapse
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+      SYNAPSE_SERVER_NAME: matrix.${BASE_DOMAIN}
+      SYNAPSE_REPORT_STATS: "no"
+    volumes:
+      - synapse_data:/data
+      - ./config/synapse/homeserver.yaml:/data/homeserver.yaml:ro
+    networks:
+      - internal
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      # Matrix federation + client API
+      - "traefik.http.routers.synapse.rule=Host(`matrix.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.synapse.entrypoints=websecure"
+      - "traefik.http.routers.synapse.tls.certresolver=letsencrypt"
+      - "traefik.http.services.synapse.loadbalancer.server.port=8008"
+    healthcheck:
+      test: ["CMD", "curl", "-fSs", "http://localhost:8008/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  # ── Element Web (Matrix client) ───────────────────────────────
+  element:
+    image: vectorim/element-web:latest
+    container_name: element
+    restart: unless-stopped
+    volumes:
+      - ./config/element/config.json:/app/config.json:ro
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.element.rule=Host(`element.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.element.entrypoints=websecure"
+      - "traefik.http.routers.element.tls.certresolver=letsencrypt"
+      - "traefik.http.services.element.loadbalancer.server.port=80"
+
+volumes:
+  zulip_data:
+  synapse_data:

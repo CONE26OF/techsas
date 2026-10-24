@@ -1,0 +1,250 @@
+# =============================================================
+# Security: Authentik (SSO) + Headscale (WireGuard mesh) +
+#           Pritunl (enterprise VPN) + Wazuh (SIEM) +
+#           Teleport CE (privileged access)
+# =============================================================
+
+services:
+
+  # ── Authentik (OIDC/SAML SSO, AGPL-3.0) ─────────────────────
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2024.12
+    container_name: authentik-server
+    restart: unless-stopped
+    command: server
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_REDIS__PASSWORD: ${REDIS_PASSWORD}
+      AUTHENTIK_POSTGRESQL__HOST: postgres
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_DB_PASSWORD}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+      AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
+    volumes:
+      - authentik_media:/media
+      - authentik_templates:/templates
+    networks:
+      - internal
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authentik.rule=Host(`sso.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.authentik.entrypoints=websecure"
+      - "traefik.http.routers.authentik.tls.certresolver=letsencrypt"
+      - "traefik.http.services.authentik.loadbalancer.server.port=9000"
+      # Forward auth endpoint (used by other services' middleware)
+      - "traefik.http.routers.authentik-outpost.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.${BASE_DOMAIN}`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      - "traefik.http.routers.authentik-outpost.entrypoints=websecure"
+      - "traefik.http.routers.authentik-outpost.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.authentik-outpost.service=authentik"
+    healthcheck:
+      test: ["CMD", "ak", "healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2024.12
+    container_name: authentik-worker
+    restart: unless-stopped
+    command: worker
+    depends_on:
+      - authentik-server
+    environment:
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_REDIS__PASSWORD: ${REDIS_PASSWORD}
+      AUTHENTIK_POSTGRESQL__HOST: postgres
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_DB_PASSWORD}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - authentik_media:/media
+      - authentik_templates:/templates
+    networks:
+      - internal
+
+  # ── Headscale (WireGuard ZTNA mesh, BSD-3) ────────────────────
+  headscale:
+    image: headscale/headscale:0.23
+    container_name: headscale
+    restart: unless-stopped
+    command: headscale serve
+    volumes:
+      - headscale_data:/var/lib/headscale
+      - ./config/headscale/config.yaml:/etc/headscale/config.yaml:ro
+    networks:
+      - internal
+      - proxy
+    ports:
+      - "3478:3478/udp"   # STUN
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.headscale.rule=Host(`vpn.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.headscale.entrypoints=websecure"
+      - "traefik.http.routers.headscale.tls.certresolver=letsencrypt"
+      - "traefik.http.services.headscale.loadbalancer.server.port=8080"
+
+  # ── Headscale UI ──────────────────────────────────────────────
+  headscale-ui:
+    image: ghcr.io/gurucomputing/headscale-ui:latest
+    container_name: headscale-ui
+    restart: unless-stopped
+    networks:
+      - internal
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.headscale-ui.rule=Host(`vpn-ui.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.headscale-ui.entrypoints=websecure"
+      - "traefik.http.routers.headscale-ui.tls.certresolver=letsencrypt"
+      - "traefik.http.services.headscale-ui.loadbalancer.server.port=80"
+      - "traefik.http.routers.headscale-ui.middlewares=authentik@file"
+
+  # ── Pritunl CE (enterprise OpenVPN/WireGuard hub-spoke) ──────
+  pritunl:
+    image: jippi/pritunl:latest
+    container_name: pritunl
+    restart: unless-stopped
+    privileged: true
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      PRITUNL_MONGODB_URI: mongodb://root:${MONGO_ROOT_PASSWORD}@mongodb:27017/pritunl?authSource=admin
+    volumes:
+      - pritunl_data:/var/lib/pritunl
+    networks:
+      - internal
+      - proxy
+    ports:
+      - "1194:1194/udp"   # OpenVPN
+      - "1195:1195/udp"   # WireGuard
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pritunl.rule=Host(`pritunl.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.pritunl.entrypoints=websecure"
+      - "traefik.http.routers.pritunl.tls.certresolver=letsencrypt"
+      - "traefik.http.services.pritunl.loadbalancer.server.port=443"
+      - "traefik.http.services.pritunl.loadbalancer.server.scheme=https"
+
+  # ── Wazuh Manager (SIEM/XDR, GPL-2.0) ────────────────────────
+  wazuh-manager:
+    image: wazuh/wazuh-manager:4.9.2
+    container_name: wazuh-manager
+    restart: unless-stopped
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 655360
+        hard: 655360
+    environment:
+      INDEXER_URL: https://wazuh-indexer:9200
+      INDEXER_USERNAME: admin
+      INDEXER_PASSWORD: ${WAZUH_INDEXER_PASSWORD}
+      FILEBEAT_SSL_VERIFICATION_MODE: none
+      SSL_CERTIFICATE_AUTHORITIES: /etc/ssl/root-ca.pem
+      SSL_CERTIFICATE: /etc/ssl/filebeat.pem
+      SSL_KEY: /etc/ssl/filebeat.key
+      API_USERNAME: wazuh-wui
+      API_PASSWORD: ${WAZUH_API_PASSWORD}
+    volumes:
+      - wazuh_api_config:/var/ossec/api/configuration
+      - wazuh_etc:/var/ossec/etc
+      - wazuh_logs:/var/ossec/logs
+      - wazuh_queue:/var/ossec/queue
+      - wazuh_var_multigroups:/var/ossec/var/multigroups
+      - wazuh_integrations:/var/ossec/integrations
+      - wazuh_active_response:/var/ossec/active-response/bin
+      - wazuh_agentless:/var/ossec/agentless
+      - wazuh_wodles:/var/ossec/wodles
+      - wazuh_filebeat_etc:/etc/filebeat
+      - wazuh_filebeat_var:/var/lib/filebeat
+    networks:
+      - internal
+    ports:
+      - "1514:1514/udp"   # Agent communications
+      - "1515:1515"       # Agent enrollment
+      - "514:514/udp"     # Syslog
+      - "55000:55000"     # REST API
+
+  wazuh-indexer:
+    image: wazuh/wazuh-indexer:4.9.2
+    container_name: wazuh-indexer
+    restart: unless-stopped
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    environment:
+      node.name: wazuh.indexer
+      cluster.initial_master_nodes: wazuh.indexer
+      cluster.name: wazuh-cluster
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms1g -Xmx1g"
+      INDEXER_USERNAME: admin
+      INDEXER_PASSWORD: ${WAZUH_INDEXER_PASSWORD}
+    volumes:
+      - wazuh_indexer_data:/var/lib/wazuh-indexer
+    networks:
+      - internal
+
+  wazuh-dashboard:
+    image: wazuh/wazuh-dashboard:4.9.2
+    container_name: wazuh-dashboard
+    restart: unless-stopped
+    depends_on:
+      - wazuh-indexer
+      - wazuh-manager
+    environment:
+      INDEXER_USERNAME: admin
+      INDEXER_PASSWORD: ${WAZUH_INDEXER_PASSWORD}
+      WAZUH_API_URL: https://wazuh-manager
+      DASHBOARD_USERNAME: kibanaserver
+      DASHBOARD_PASSWORD: ${WAZUH_DASHBOARD_PASSWORD}
+      API_USERNAME: wazuh-wui
+      API_PASSWORD: ${WAZUH_API_PASSWORD}
+    networks:
+      - internal
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wazuh.rule=Host(`siem.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.wazuh.entrypoints=websecure"
+      - "traefik.http.routers.wazuh.tls.certresolver=letsencrypt"
+      - "traefik.http.services.wazuh.loadbalancer.server.port=5601"
+      - "traefik.http.services.wazuh.loadbalancer.server.scheme=https"
+      - "traefik.http.routers.wazuh.middlewares=authentik@file"
+
+volumes:
+  authentik_media:
+  authentik_templates:
+  headscale_data:
+  pritunl_data:
+  wazuh_api_config:
+  wazuh_etc:
+  wazuh_logs:
+  wazuh_queue:
+  wazuh_var_multigroups:
+  wazuh_integrations:
+  wazuh_active_response:
+  wazuh_agentless:
+  wazuh_wodles:
+  wazuh_filebeat_etc:
+  wazuh_filebeat_var:
+  wazuh_indexer_data:
