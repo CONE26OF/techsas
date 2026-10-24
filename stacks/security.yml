@@ -131,7 +131,7 @@ services:
       - "1195:1195/udp"   # WireGuard
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.pritunl.rule=Host(`pritunl.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.pritunl.rule=Host(`tunnel.${BASE_DOMAIN}`)"
       - "traefik.http.routers.pritunl.entrypoints=websecure"
       - "traefik.http.routers.pritunl.tls.certresolver=letsencrypt"
       - "traefik.http.services.pritunl.loadbalancer.server.port=443"

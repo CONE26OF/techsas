@@ -1,34 +1,58 @@
-# TechSAS — Enterprise SaaS Stack for Indian Businesses
+# ConnectOne — Enterprise SaaS Stack
 
-A production-ready, self-hosted enterprise platform bundling 15+ open-source applications, deployable on a single server with Docker Compose.
+A production-ready, self-hosted enterprise platform for Indian businesses — 15+ open-source applications on a single server with Docker Compose, all accessible under `connectone.tech` subdomains.
+
+## Live Subdomains
+
+| Service | URL | What it does |
+|---|---|---|
+| **Traefik** | `traefik.connectone.tech` | Reverse proxy + TLS dashboard |
+| **Authentik SSO** | `sso.connectone.tech` | Single sign-on for all services |
+| **Drive** (Nextcloud) | `drive.connectone.tech` | Cloud file storage, CalDAV/CardDAV |
+| **Docs** (ONLYOFFICE) | `docs.connectone.tech` | Online document/spreadsheet editing |
+| **Chat** (Zulip) | `chat.connectone.tech` | Team messaging, threaded channels |
+| **Messenger** (Element) | `messenger.connectone.tech` | E2EE WhatsApp/Telegram-style chat |
+| **Support** (Chatwoot) | `support.connectone.tech` | Customer support + WhatsApp Business |
+| **AI** (Flowise) | `ai.connectone.tech` | LLM pipeline & chatbot builder |
+| **LLM** (Open WebUI) | `llm.connectone.tech` | Chat UI for local AI models |
+| **VPN** (Headscale) | `vpn.connectone.tech` | Zero-trust WireGuard mesh |
+| **VPN UI** | `vpn-ui.connectone.tech` | Headscale admin panel |
+| **Tunnel** (Pritunl) | `tunnel.connectone.tech` | Enterprise OpenVPN/WireGuard |
+| **SIEM** (Wazuh) | `siem.connectone.tech` | Security monitoring + DPDP compliance |
+| **Projects** (Plane) | `projects.connectone.tech` | Project & sprint management |
+| **ERP** (ERPNext) | `erp.connectone.tech` | GST, GSTR, e-invoicing, inventory |
+| **Billing** (Flexprice) | `billing.connectone.tech` | SaaS billing + Razorpay/PayU |
+| **Monitor** (Grafana) | `monitor.connectone.tech` | Dashboards, metrics, logs |
+| **Storage** (MinIO) | `s3.connectone.tech` | S3-compatible object storage API |
+| **Storage UI** | `storage.connectone.tech` | MinIO admin console |
 
 ## Stack
 
-| Category | Service | License | URL |
-|---|---|---|---|
-| Reverse Proxy | Traefik v3 | MIT | `traefik.<domain>` |
-| SSO / IAM | Authentik | AGPL-3.0 | `sso.<domain>` |
-| File Storage | Nextcloud CE | GPL-3.0 | `files.<domain>` |
-| Document Edit | ONLYOFFICE Docs | AGPL-3.0 | `office.<domain>` |
-| Team Chat | Zulip | Apache 2.0 | `chat.<domain>` |
-| E2EE Messaging | Matrix Synapse + Element | AGPL-3.0 | `element.<domain>` |
-| Customer Support | Chatwoot | MIT | `support.<domain>` |
-| AI Builder | Flowise | Apache 2.0 | `ai.<domain>` |
-| LLM Runtime | Ollama + Open WebUI | MIT | `llm.<domain>` |
-| Zero-Trust VPN | Headscale | BSD-3 | `vpn.<domain>` |
-| Enterprise VPN | Pritunl CE | Enterprise | `pritunl.<domain>` |
-| SIEM/XDR | Wazuh | GPL-2.0 | `siem.<domain>` |
-| Project Mgmt | Plane | AGPL-3.0 | `plane.<domain>` |
-| ERP / GST | ERPNext v15 | GPL-3.0 | `erp.<domain>` |
-| SaaS Billing | Flexprice | AGPL-3.0 | `billing.<domain>` |
-| Monitoring | Grafana + Prometheus + Loki | AGPL-3.0 | `grafana.<domain>` |
-| Object Storage | MinIO | AGPL-3.0 | `s3.<domain>` |
+| Category | Service | License |
+|---|---|---|
+| Reverse Proxy | Traefik v3 | MIT |
+| SSO / IAM | Authentik | AGPL-3.0 |
+| File Storage | Nextcloud CE | GPL-3.0 |
+| Document Edit | ONLYOFFICE Docs | AGPL-3.0 |
+| Team Chat | Zulip | Apache 2.0 |
+| E2EE Messaging | Matrix Synapse + Element | AGPL-3.0 |
+| Customer Support | Chatwoot | MIT |
+| AI Builder | Flowise | Apache 2.0 |
+| LLM Runtime | Ollama + Open WebUI | MIT |
+| Zero-Trust VPN | Headscale | BSD-3 |
+| Enterprise VPN | Pritunl CE | Enterprise |
+| SIEM/XDR | Wazuh | GPL-2.0 |
+| Project Mgmt | Plane | AGPL-3.0 |
+| ERP / GST | ERPNext v15 | GPL-3.0 |
+| SaaS Billing | Flexprice | AGPL-3.0 |
+| Monitoring | Grafana + Prometheus + Loki | AGPL-3.0 |
+| Object Storage | MinIO | AGPL-3.0 |
 
 ## Requirements
 
 - **Server**: 8 vCPU / 32 GB RAM / 400 GB SSD (Hetzner CCX23 or equivalent)
 - **OS**: Ubuntu 22.04 LTS or Debian 12
-- **Domain**: A wildcard DNS `*.yourdomain.com → server IP` (or individual A records per subdomain)
+- **Domain**: A wildcard DNS `*.connectone.tech → server IP` (or individual A records per subdomain)
 - **Ports open**: 80, 443, 1194/udp (OpenVPN), 1195/udp (WireGuard), 3478/udp (STUN), 51820/udp (WireGuard mesh)
 
 ## Quick Start
@@ -65,7 +89,7 @@ Fill in all values — pay special attention to:
 Update domain placeholders in config files:
 ```bash
 # Replace REPLACE_BASE_DOMAIN with your domain in all config files
-find config/ -type f | xargs sed -i 's/REPLACE_BASE_DOMAIN/yourdomain.com/g'
+find config/ -type f | xargs sed -i 's/REPLACE_BASE_DOMAIN/connectone.tech/g'
 
 # Replace password placeholders in synapse config
 sed -i "s/REPLACE_SYNAPSE_DB_PASSWORD/${SYNAPSE_DB_PASSWORD}/g" config/synapse/homeserver.yaml
@@ -94,57 +118,57 @@ chmod +x scripts/*.sh
 Point these DNS A records to your server IP (`147.93.169.215`):
 
 ```
-traefik.yourdomain.com      → 147.93.169.215
-sso.yourdomain.com          → 147.93.169.215
-files.yourdomain.com        → 147.93.169.215
-office.yourdomain.com       → 147.93.169.215
-chat.yourdomain.com         → 147.93.169.215
-matrix.yourdomain.com       → 147.93.169.215
-element.yourdomain.com      → 147.93.169.215
-support.yourdomain.com      → 147.93.169.215
-ai.yourdomain.com           → 147.93.169.215
-llm.yourdomain.com          → 147.93.169.215
-vpn.yourdomain.com          → 147.93.169.215
-vpn-ui.yourdomain.com       → 147.93.169.215
-pritunl.yourdomain.com      → 147.93.169.215
-siem.yourdomain.com         → 147.93.169.215
-plane.yourdomain.com        → 147.93.169.215
-erp.yourdomain.com          → 147.93.169.215
-billing.yourdomain.com      → 147.93.169.215
-grafana.yourdomain.com      → 147.93.169.215
-prometheus.yourdomain.com   → 147.93.169.215
-s3.yourdomain.com           → 147.93.169.215
-minio-console.yourdomain.com → 147.93.169.215
+traefik.connectone.tech      → 147.93.169.215
+sso.connectone.tech          → 147.93.169.215
+drive.connectone.tech        → 147.93.169.215
+docs.connectone.tech         → 147.93.169.215
+chat.connectone.tech         → 147.93.169.215
+matrix.connectone.tech       → 147.93.169.215
+messenger.connectone.tech    → 147.93.169.215
+support.connectone.tech      → 147.93.169.215
+ai.connectone.tech           → 147.93.169.215
+llm.connectone.tech          → 147.93.169.215
+vpn.connectone.tech          → 147.93.169.215
+vpn-ui.connectone.tech       → 147.93.169.215
+tunnel.connectone.tech       → 147.93.169.215
+siem.connectone.tech         → 147.93.169.215
+projects.connectone.tech     → 147.93.169.215
+erp.connectone.tech          → 147.93.169.215
+billing.connectone.tech      → 147.93.169.215
+monitor.connectone.tech      → 147.93.169.215
+prometheus.connectone.tech   → 147.93.169.215
+s3.connectone.tech           → 147.93.169.215
+storage.connectone.tech      → 147.93.169.215
 ```
 
-Or use a wildcard: `*.yourdomain.com → 147.93.169.215`
+Or use a wildcard: `*.connectone.tech → 147.93.169.215`
 
 ## Post-Deploy Setup
 
 ### Authentik (do this first — gates all other admin UIs)
-1. Go to `https://sso.yourdomain.com/if/flow/initial-setup/`
+1. Go to `https://sso.connectone.tech/if/flow/initial-setup/`
 2. Set your admin password
 3. Create applications + providers for each service
 
 ### Zulip
-1. Go to `https://chat.yourdomain.com`
+1. Go to `https://chat.connectone.tech`
 2. Run org setup wizard
 3. Configure SAML SSO with Authentik provider
 
 ### ERPNext (Indian GST)
-1. Go to `https://erp.yourdomain.com`
+1. Go to `https://erp.connectone.tech`
 2. Setup wizard → select **India** as country
-3. Install **India Localization** app: `bench --site erp.yourdomain.com install-app india_compliance`
+3. Install **India Localization** app: `bench --site erp.connectone.tech install-app india_compliance`
 4. Configure GST settings, GSTIN, HSN/SAC codes
 5. Connect Razorpay: ERPNext > Integrations > Razorpay Settings
 
 ### Chatwoot (WhatsApp)
-1. Go to `https://support.yourdomain.com`
+1. Go to `https://support.connectone.tech`
 2. Create account → Settings → Inboxes → Add Inbox
 3. Select **WhatsApp** → enter WhatsApp Business API credentials
 
 ### Flowise (AI Chatbot)
-1. Go to `https://ai.yourdomain.com`
+1. Go to `https://ai.connectone.tech`
 2. Create a flow using Ollama nodes
 3. First pull a model: `docker exec ollama ollama pull llama3.2:3b`
 4. Embed chatbot widget in your Chatwoot inbox

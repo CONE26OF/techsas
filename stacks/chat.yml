@@ -98,7 +98,7 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.element.rule=Host(`element.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.element.rule=Host(`messenger.${BASE_DOMAIN}`)"
       - "traefik.http.routers.element.entrypoints=websecure"
       - "traefik.http.routers.element.tls.certresolver=letsencrypt"
       - "traefik.http.services.element.loadbalancer.server.port=80"

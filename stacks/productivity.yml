@@ -12,14 +12,14 @@ services:
     restart: unless-stopped
     command: /usr/local/bin/start.sh web/server.js web
     environment:
-      NEXT_PUBLIC_API_BASE_URL: https://plane.${BASE_DOMAIN}
-      NEXT_PUBLIC_DEPLOY_URL: https://plane.${BASE_DOMAIN}
+      NEXT_PUBLIC_API_BASE_URL: https://projects.${BASE_DOMAIN}
+      NEXT_PUBLIC_DEPLOY_URL: https://projects.${BASE_DOMAIN}
     networks:
       - internal
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.plane.rule=Host(`plane.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.plane.rule=Host(`projects.${BASE_DOMAIN}`)"
       - "traefik.http.routers.plane.entrypoints=websecure"
       - "traefik.http.routers.plane.tls.certresolver=letsencrypt"
       - "traefik.http.services.plane.loadbalancer.server.port=3000"
@@ -38,8 +38,8 @@ services:
       SECRET_KEY: ${PLANE_SECRET_KEY}
       DATABASE_URL: postgresql://plane:${PLANE_DB_PASSWORD}@postgres:5432/plane
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
-      CORS_ALLOWED_ORIGINS: https://plane.${BASE_DOMAIN}
-      WEB_URL: https://plane.${BASE_DOMAIN}
+      CORS_ALLOWED_ORIGINS: https://projects.${BASE_DOMAIN}
+      WEB_URL: https://projects.${BASE_DOMAIN}
       FILE_SIZE_LIMIT: "5242880"
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
@@ -53,7 +53,7 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.plane-api.rule=Host(`plane.${BASE_DOMAIN}`) && PathPrefix(`/api/`, `/auth/`)"
+      - "traefik.http.routers.plane-api.rule=Host(`projects.${BASE_DOMAIN}`) && PathPrefix(`/api/`, `/auth/`)"
       - "traefik.http.routers.plane-api.entrypoints=websecure"
       - "traefik.http.routers.plane-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.plane-api.loadbalancer.server.port=8000"
