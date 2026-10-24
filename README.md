@@ -10,8 +10,8 @@ A production-ready, self-hosted enterprise platform for Indian businesses — 15
 | **Authentik SSO** | `sso.connectone.tech` | Single sign-on for all services |
 | **Drive** (Nextcloud) | `drive.connectone.tech` | Cloud file storage, CalDAV/CardDAV |
 | **Docs** (ONLYOFFICE) | `docs.connectone.tech` | Online document/spreadsheet editing |
-| **Chat** (Zulip) | `chat.connectone.tech` | Team messaging, threaded channels |
-| **Messenger** (Element) | `messenger.connectone.tech` | E2EE WhatsApp/Telegram-style chat |
+| **Teams** (Zulip) | `teams.connectone.tech` | Team messaging, threaded channels |
+| **Chat** (Element) | `chat.connectone.tech` | E2EE WhatsApp/Telegram-style chat |
 | **Support** (Chatwoot) | `support.connectone.tech` | Customer support + WhatsApp Business |
 | **AI** (Flowise) | `ai.connectone.tech` | LLM pipeline & chatbot builder |
 | **LLM** (Open WebUI) | `llm.connectone.tech` | Chat UI for local AI models |
@@ -122,9 +122,9 @@ traefik.connectone.tech      → 147.93.169.215
 sso.connectone.tech          → 147.93.169.215
 drive.connectone.tech        → 147.93.169.215
 docs.connectone.tech         → 147.93.169.215
-chat.connectone.tech         → 147.93.169.215
+teams.connectone.tech        → 147.93.169.215
 matrix.connectone.tech       → 147.93.169.215
-messenger.connectone.tech    → 147.93.169.215
+chat.connectone.tech         → 147.93.169.215
 support.connectone.tech      → 147.93.169.215
 ai.connectone.tech           → 147.93.169.215
 llm.connectone.tech          → 147.93.169.215
@@ -150,8 +150,8 @@ Or use a wildcard: `*.connectone.tech → 147.93.169.215`
 2. Set your admin password
 3. Create applications + providers for each service
 
-### Zulip
-1. Go to `https://chat.connectone.tech`
+### Zulip (Teams)
+1. Go to `https://teams.connectone.tech`
 2. Run org setup wizard
 3. Configure SAML SSO with Authentik provider
 

@@ -19,7 +19,7 @@ services:
       DB_HOST_PORT: "5432"
       DB_USER: zulip
       DB_PASSWORD: ${ZULIP_DB_PASSWORD}
-      SETTING_EXTERNAL_HOST: chat.${BASE_DOMAIN}
+      SETTING_EXTERNAL_HOST: teams.${BASE_DOMAIN}
       SETTING_ZULIP_ADMINISTRATOR: ${ZULIP_ADMIN_EMAIL}
       SETTING_EMAIL_HOST: ""
       SETTING_EMAIL_HOST_USER: ""
@@ -42,7 +42,7 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.zulip.rule=Host(`chat.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.zulip.rule=Host(`teams.${BASE_DOMAIN}`)"
       - "traefik.http.routers.zulip.entrypoints=websecure"
       - "traefik.http.routers.zulip.tls.certresolver=letsencrypt"
       - "traefik.http.services.zulip.loadbalancer.server.port=80"
@@ -98,7 +98,7 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.element.rule=Host(`messenger.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.element.rule=Host(`chat.${BASE_DOMAIN}`)"
       - "traefik.http.routers.element.entrypoints=websecure"
       - "traefik.http.routers.element.tls.certresolver=letsencrypt"
       - "traefik.http.services.element.loadbalancer.server.port=80"
